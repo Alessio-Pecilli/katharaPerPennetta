@@ -1,0 +1,45 @@
+LOOPBACK
+
+ROUTE MAP PER IBGP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+RICORDA TOGI DOVE NON SERVE REDISTRIBUTE CONNECTED
+
+RICORDA CHE 
+
+IO NON DO AL MIO PEER MIO PADRE
+NON DO A MIO PADRE IL MIO PEER
+
+SI TUTTI I COLLEGMANETI
+
+ricorda provider deve condiivere  fili nei permit!!!!!!!
+
+
+neighbor 10.2.4.2 prefix-list dentroPeer in 
+neighbor 10.2.4.2 prefix-list fuoriPeer out
+
+network 2.0.0.0/24
+network 10.2.3.0/30
+network 10.2.4.0/30
+network 10.1.2.0/30
+
+ip prefix-list dentroCliente permit any
+ip prefix-list fuoriCliente permit any
+
+ip prefix-list dentroServente permit any
+ip prefix-list fuoriServente permit 2.0.0.0/24
+
+
+ip prefix-list myNeighbors permit 10.1.2.0/30 le 32 
+ip prefix-list myNeighbors permit 10.1.4.0/30 le 32 
+route-map eBGP permit 10 
+	match ip next-hop prefix-list myNeighbors 
+
+router rip
+    network 1.0.0.0/8
+    redistribute connected
+    redistribute bgp route-map eBGP 
+
+neighbor 2.2.2.2 remote-as 1
+neighbor 2.2.2.2 update-source 1.1.1.1
+
+ip address add 1.1.1.1 dev lo:1

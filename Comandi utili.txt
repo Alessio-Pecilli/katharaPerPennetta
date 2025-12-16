@@ -1,0 +1,69 @@
+General commands
+
+ps aux: visualizza i processi in esecuzione
+
+ip route: mostra in maniera testuale la routing table (comando alternativo: routel (preferito) oppure route (mostra la metrica, flags e la mask estesa))
+
+tcpdump -tenni eth<i> -v: comando per sniffare pacchetti su una certa inferfaccia eth<i>. " -v" diventerà ostico da usare in futuro. 
+
+Vtysh
+
+vtysh: comando per entrare nella configurazione del routing
+
+exit: comando per uscire
+
+Con "?" mostra l'insieme dei comandi utilizzabili.
+
+show serve per mostrare.
+
+show running config permette di analizzare comandi che sono piaciuti e comandi che non sono piaciuti.
+Ciò che non viene stampato di quello che avevo scritto nella configurazione significa che non l'ha preso.
+
+Concatenato a ip, si ottiene la tabella di instradamento del control plane. Aggiungendo:
+• route => la tabella di instradamento di zebra;
+• rip route => la tabella di instradamento di rip.
+
+Affianco alla linea è presente * che indica forward instradation base route, ovvero le rotte sono installate nella tabella di instradamento.
+
+Vtysh - ospf
+
+I comandi usabili in vtysh per ospfd sono:
+• show ip ospf route (per analizzare la tabella generata e quante entries ci sono per ogni ip)
+• show ip ospf interface (per analizzare i dettagli per ogni interfaccia, tra cui anche il router-id)
+• show ip ospf neighbor (per analizzare i dettagli dei vicini)
+• show ip ospf database (per analizzare la composizione dei db dal p.v. delle entries presenti):
+    • router dà informazioni sul router su cui abbiamo inviato il comando
+    • network dà informazioni delle network del router su cui abbiamo inviato il comando
+
+ADV Router (si trova in show ip ospf database) = next hop 
+
+Sia ADV Router che il comando show ip ospf interface mostrano il router-id.
+
+Per modificare frr.conf nella macchina si deve entrare in vtysh e si scrive configure terminal.
+Per ritornare indietro si scrive quit
+
+Alternativa esecuzione comandi vtysh senza usarlo
+
+vtysh -e "comando" permette di eseguire il comando senza accedere a vtysh.
+
+Vtysh - bgp
+• show bgp summary: verifichiamo quali peering sono tirati su
+• show ip bgp: mostra informazioni sulle network e sulla lunghezza del cammino (path).
+  Se appare la parola policy => manca la policy
+• show ip bgp route
+• show ip bgp neighbour: informazione sui vifini e sul BGP state
+• show ip bgp summary: sintesi delle info tra cui se si ha ricevuto il msg nel caso stia su e se è up o down
+
+Webserver
+
+links http://<ip address>
+
+
+VXLAN
+
+brctl show <porta bridge>: mostra la tabella bridge del data plane
+brctl showmacs <porta bridge>: Mostra la tabella dei MAC appresi dal bridge
+
+VXLAN - Vtysh
+sh evpn mac vni all: mostra le vni apprese
+

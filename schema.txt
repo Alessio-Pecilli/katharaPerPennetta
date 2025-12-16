@@ -1,0 +1,203 @@
+# =====================================================
+# 🔥 ROUTING DINAMICO – RIP e OSPF (FRRouting)
+# =====================================================
+# Basato sui laboratori Katharà – Roma Tre University
+# =====================================================
+
+
+# =====================================================
+# 🧭 SEZIONE DIAGNOSTICA OSPF (COMANDI PRINCIPALI)
+# =====================================================
+
+# 1️⃣ VEDERE L’ID DEL ROUTER (Router ID)
+show ip ospf
+# → Mostra l’ID del router (Router ID), le aree a cui appartiene,
+#   i timer e lo stato generale del processo OSPF.
+#   Il Router ID è un identificatore unico (di solito l’IP più alto tra le interfacce attive).
+#   Serve a distinguere i router nel database LSDB.
+
+# 2️⃣ VEDERE IL DESIGNATED ROUTER (DR) E BACKUP DR (BDR) DI UNA RETE/LAN
+show ip ospf interface
+# → Mostra, per ogni interfaccia:
+#   - Il costo OSPF
+#   - I timer Hello/Dead
+#   - Lo stato dell’interfaccia (DR, BDR, DROther)
+#   - L’ID del DR e del BDR eletti su quella rete.
+#   Il DR è il router che gestisce la diffusione degli LSAs nella LAN.
+
+# 3️⃣ VEDERE LE ENTRY DI DEFAULT (0.0.0.0/0)
+show ip route
+# → Mostra tutte le rotte conosciute dal router.
+#   Le righe con “0.0.0.0/0” indicano la *default route*,
+#   cioè la via usata per raggiungere destinazioni sconosciute.
+#   Queste entry le hanno i **router interni** (detti *internal routers*),
+#   che ricevono la default route dai router di confine (ABR o ASBR)
+#   quando l’area è di tipo *stub* o *no-summary*.
+
+# 4️⃣ VEDERE I VICINI OSPF
+show ip ospf neighbor
+# → Mostra tutti i *neighbor* OSPF conosciuti,
+#   con il loro ID, stato e interfaccia.
+#   ⚠️ Mostra le caratteristiche dei tuoi *vicini*, non del tuo router.
+#   “Full” = adiacenza completa, scambio di LSAs terminato.
+
+
+# =====================================================
+# 🔹 CONFIGURAZIONE OSPF (FRRouting)
+# =====================================================
+
+# Attivare OSPF su un’interfaccia
+interface ethX
+    ip ospf area <id_area>
+# → Abilita OSPF sull’interfaccia e la assegna all’area indicata.
+
+# Impostare il costo OSPF
+interface eth1
+    ospf cost 100
+# → Modifica il costo manualmente (default 10). Più alto = meno preferito.
+
+# Aggiungere rotta statica nel kernel
+ip route add 20.0.0.0/16 via 10.0.0.2 dev eth0
+# → Inserisce una rotta statica di sistema.
+#   Se vuoi che OSPF la annunci, aggiungi anche:
+#       redistribute kernel
+
+# Aggiungere rotta statica tramite FRR
+ip route <rete_dest> <gateway>
+# → Variante interna a FRRouting, valida nel file di configurazione.
+
+# Visualizzare le interfacce OSPF
+show ip ospf interface
+# → Mostra DR/BDR, costi, timer e stato.
+
+# Controllare i vicini OSPF
+show ip ospf neighbor
+# → Elenca i router connessi via OSPF (stato “Full” = connessione OK).
+
+# Visualizzare la tabella OSPF
+show ip ospf route
+# → Elenca le rotte intra-area, inter-area, e esterne (E1/E2).
+
+# Mostrare il database OSPF
+show ip ospf database
+# → Visualizza il Link State Database completo.
+
+# Analizzare LSAs
+show ip ospf database router
+show ip ospf database network
+show ip ospf database summary
+show ip ospf database asbr-summary
+
+# Ridistribuire rotte da altri protocolli
+redistribute connected
+redistribute static
+redistribute kernel
+redistribute bgp metric-type 2 metric 495
+
+# =====================================================
+# 🔹 MULTIAREA OSPF
+# =====================================================
+
+# ▪ Router di backbone:
+#       network <rete_punto_punto> area 0.0.0.0
+# ▪ Router interni (solo area secondaria):
+#       network <rete_di_appartenenza> area <id_area>
+# ▪ Router di confine (ABR):
+#       network <rete_punto_punto> area 0.0.0.0
+#       network <rete_di_appartenenza> area <id_area>
+# ⚠️ IMPORTANTE:
+#   - I router interni collegati alla backbone devono configurare sia
+#     la rete punto-punto (verso la backbone)
+#     sia la rete interna della loro area.
+#   - I router solo backbone configurano solo la rete punto-punto.
+#   - I router solo interni mettono solo la rete di appartenenza.
+
+# Tipi di area
+area 1.1.1.1 stub
+area 1.1.1.1 stub no-summary
+# → “stub” = non riceve rotte esterne
+#   “no-summary” = riceve solo la default route 0.0.0.0/0
+
+# =====================================================
+# 🔹 RIP (Routing Information Protocol)
+# =====================================================
+
+router rip
+ network 100.1.0.0/16
+ log file /var/log/frr/frr.log
+# → Attiva RIP su tutte le interfacce comprese nel prefisso.
+
+systemctl start frr
+# → Avvia i demoni FRR (tra cui ripd).
+
+ip route
+# → Prima dell’avvio: solo rotte dirette.
+#   Dopo l’avvio: compaiono le rotte RIP (proto rip).
+
+ping <ip>
+# → Verifica connettività.
+
+tcpdump -n -i ethX -v
+# → Mostra pacchetti RIPv2 (224.0.0.9 UDP 520).
+
+vtysh
+# → Entra nella CLI FRR.
+
+show ip rip
+# → Mostra le rotte apprese via RIP, metriche e tempi.
+
+ip route add 100.1.0.0/16 via 100.2.0.1
+# → Aggiunge rotta statica nel kernel (per Internet o router esterno).
+#   Per diffonderla in RIP: redistribute kernel
+
+ip route add default via 100.2.0.2
+# → Default route per uscire verso l’esterno.
+
+# Propagare la default in RIP
+vtysh
+configure
+ router rip
+  route 0.0.0.0/0
+ exit
+exit
+# → Propaga la default route a tutta la rete RIP.
+
+ip link set ethX down
+# → Simula guasto (RIP si aggiorna dopo timeout ~180s).
+
+traceroute <ip>
+# → Verifica percorso e riconvergenza.
+
+# “redistribute connected”
+# → RIP pubblica di default le reti direttamente connesse alle interfacce attive in RIP.
+#   Con “redistribute connected” le forza tutte.
+
+
+# =====================================================
+# 🔹 NOTE FINALI E CONCETTI CHIAVE
+# =====================================================
+
+# ▪ COSTI OSPF:
+#   Cost = Reference_BW / Interface_BW  (Default Reference_BW = 100 Mbps)
+
+# ▪ TIPI DI PERCORSO OSPF:
+#   1. Intra-area → dentro la stessa area
+#   2. Inter-area → tra aree (via ABR)
+#   3. External Type 1 → costo totale
+#   4. External Type 2 → solo costo esterno
+
+# ▪ TIPI DI ROUTER:
+#   - Internal Router → tutte le interfacce nella stessa area
+#   - Backbone Router → connesso all’area 0
+#   - ABR → collega un’area alla backbone
+#   - ASBR → collega OSPF a un altro protocollo (es. BGP)
+
+# ▪ RIP:
+#   - Distanza vettoriale (hop count max 15)
+#   - Aggiornamenti ogni 30s
+#   - Redistribuzione: connected, static, kernel
+
+# ▪ OSPF:
+#   - Link-state, convergenza rapida
+#   - Algoritmo di Dijkstra
+#   - Supporta multi-area e gerarchia

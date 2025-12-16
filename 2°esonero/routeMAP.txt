@@ -1,0 +1,124 @@
+Preferisco RICEVERE rotte/traffico -> out
+Preferisco INVIARE rotte/traffico -> in
+Preferisco RICEVERE annunci -> in
+Preferisco INVIARE annunci -> out
+
+neighbor <neighbor-ip> filter-list <acl-name> in
+bgp as-path access-list <acl-name> permit <regexp>
+
+log file /var/log/frr/frr.log
+
+router bgp 10
+
+neighbor 192.168.0.2 remote-as 40
+
+network 110.0.0.0/24
+network 192.168.0.0/30
+
+
+neighbor 192.168.0.2 prefix-list peerOut out
+
+neighbor 192.168.0.2 filter-list listaPercorsiVietati in
+
+bgp as-path access-list listaPercorsiVietati deny _20_
+bgp as-path access-list listaPercorsiVietati permit .*
+
+ip prefix-list peerOut permit any
+router bgp <AS_NUMBER>
+
+!
+! as-path filtering in BGP
+!
+	neighbor <ip neighbor> filter-list <as-path access-list> in/out
+
+!
+! Configurazione delle as-path access-list
+!
+! Comando esce fuori dalla conf di BGP e torna alla modalità di conf globale
+! usato per creare la as-path list che verrà usata per il filtering
+! Quelli che non vengono nominati sono di default deny
+
+bgp as-path access-list <as-path access-list> seq <numero della regola da eseguire> permit/deny <espressione regolare>
+
+! Si scrivono prima le regole di deny e alla fine la regola di permit any
+
+! " Il regexp in as-path rappresenta la stringa della path di as presente nell'annuncio che è stata costruita dai vari router man mano che propagavano l'annuncio. Per descrivere quell'espressione regolare si utilizzano i seguenti metacaratteri: "
+! " 	• ".": per indicare un qualsiasi singolo carattere (a.b) "
+! " 	• "\": per indicare il carattere successivo come carattere e non come metacarattere "
+! " 	• "[]": per indicare uno dei possibili caratteri presenti in [] "
+! " 	• "^": per indicare l'inizio della stringa (ricorda che la testa è l'ultimo elemento inserito anche se è FIFO) "
+! " 	• "$": per indicare la fine della stringa "
+! " 	• "*": per indicare 0 o + occorrenze del carattere precedente; "
+! " 	• "+": per indicare 1 o + occorrenze del carattere precedente; "
+! " 	• "()": per indicare il raggruppamento di parti di pattern per applicare quantificatori o per usare alternanza su un blocco; "
+! " 	• "|": per indicare l'alternanza, ovvero l'or; "
+! " "_": usato come spazio per matchare un intero AS nella sequenza, oppure può essere usato come inizio o come fine della sequenza. Solitamente è usato assieme agli altri metacaratteri "
+
+access-list <nome o numero della access-list> permit/deny <IP/prefix con mask>/any
+----------
+router bgp <AS_NUMBER>
+
+! La configurazione per il customer è uguale a quella del peer
+
+! La configurazione per ISP è uguale a la seguente
+! Si inserisce no bgp network import-check per permettere di inoltrare la default
+    no bgp network import-check
+    neighbor <ip neighbor> remote-as <AS_NUMBER>
+    neighbor <ip neighbor> description <descrizione del neighbor>
+! Si annuncia la default al customer
+    neighbor <ip neighbor> default-originate
+    neighbor <ip neighbor> prefix-list customerIn in
+
+    network <IP/prefix con mask>
+    network 0.0.0.0/0
+
+! Configurazione di default-originate nella route-map (poco usato)
+    neighbor <IP/prefix con mask> default-originate route-map <nome route-map> in/out
+! In alternativa si gestisce anche con una policy out come nella seguente maniera:
+    neighnor <ip neighbor> prefix-list defaultOut out
+
+
+! Configurazione delle prefix-list per ISP
+ip prefix-list customerIn permit <prefisso del customer con mask>
+ip prefix-list defaultOut permit 0.0.0.0/0
+
+
+-----------
+router bgp <AS_NUMBER>
+
+!
+! route-map filtering in BGP e può essere usata per lo stesso neighbor con la stessa policy usando prefix-list
+!
+	neighbor <ip neighbor> route-map <nome della route-map> in/out
+
+!
+! Configurazione delle route-map
+!
+! per matchare ogni prefisso bisogna scrivere un numero di route-map quante sono le access-list da considerare diverse
+| e includere quelle che non si trovano in un access-list
+route-map <nome della route-map> permit/deny <numero della regola da eseguire>
+	match <proprietà degli annunci>
+	! opzionale
+	set <proprietà da settare sugli annunci>
+
+! tipi di match:
+	! match ip address (vanno in OR tra di loro)
+	match ip address <nome o numero della access-list>
+	! si può scrivere anche così
+	match ip address prefix-list <nome della prefix-list>
+	! as-path (va in AND con i match con gli ip)
+	match as-path <espressione regolare>
+
+! tipi di set:
+	! local-preference (valore di default: 100) e si tende ad abbassarlo per non preferirlo
+	set local-preference <valore>
+	set weight <valore>
+	! aggiunge il numero o i numeri inseriti
+	set as-path prepend <AS_NUMBER oppure <AS_NUMBER> <AS_NUMBER> ...>
+	set community <community> [<community> ...]
+	! multi-exit-discriminator (valore di default: 0) e si tende ad azzarlo per non preferirlo
+	set metric <valore>
+
+access-list <nome o numero della access-list> permit/deny <IP/prefix con mask>/any <exact-match <=> per eseguire un match sul prefisso>
+! Si scrivono prima le regole di deny e alla fine la regola di permit any----------
+

@@ -1,0 +1,3 @@
+ip address add <ip/mask> dev eth<verso i server>
+
+systemctl start frr

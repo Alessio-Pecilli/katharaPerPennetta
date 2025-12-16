@@ -1,0 +1,2 @@
+ip address add <ip/mask> dev eth0
+ip route add default via <ip leaf> dev eth0
